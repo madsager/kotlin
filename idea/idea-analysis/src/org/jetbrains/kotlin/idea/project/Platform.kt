@@ -18,6 +18,7 @@ package org.jetbrains.kotlin.idea.project
 
 import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.module.Module
+import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ProjectFileIndex
@@ -28,6 +29,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.CachedValue
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
+import com.intellij.webcore.packaging.PackageVersionComparator.VERSION_COMPARATOR
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -124,6 +126,13 @@ fun Project.getLanguageVersionSettings(
     val languageVersion =
         LanguageVersion.fromVersionString(arguments.languageVersion)
             ?: contextModule?.getAndCacheLanguageLevelByDependencies()
+            ?: ModuleManager.getInstance(this).modules
+                .map { it.getAndCacheLanguageLevelByDependencies() }
+                .minWith(object : Comparator<LanguageVersion> {
+                    override fun compare(v1: LanguageVersion, v2: LanguageVersion): Int {
+                        return VERSION_COMPARATOR.compare(v1.versionString, v2.versionString)
+                    }
+                })
             ?: VersionView.RELEASED_VERSION
     val apiVersion = ApiVersion.createByLanguageVersion(LanguageVersion.fromVersionString(arguments.apiVersion) ?: languageVersion)
     val compilerSettings = KotlinCompilerSettings.getInstance(this).settings
