@@ -85,11 +85,11 @@ class KotlinConsoleKeeper(val project: Project) {
             return commandLine
         }
 
-        fun createJavaParametersWithSdk(module: Module): JavaParameters {
+        fun createJavaParametersWithSdk(module: Module?): JavaParameters {
             val params = JavaParameters()
             params.charset = null
 
-            val sdk = ModuleRootManager.getInstance(module).sdk
+            val sdk = module?.let { ModuleRootManager.getInstance(module).sdk }
             if (sdk != null && sdk.sdkType is JavaSdkType && File(sdk.homePath).exists()) {
                 params.jdk = sdk
             }

@@ -79,11 +79,6 @@ class ScratchFileModuleInfoProvider(val project: Project) : ProjectComponent {
             val module = ktFile.virtualFile.scriptRelatedModuleName?.let { ModuleManager.getInstance(project).findModuleByName(it) }
             if (module != null) {
                 scratchPanel?.setModule(module)
-            } else {
-                val firstModule = ModuleManager.getInstance(project).modules.firstOrNull()
-                if (firstModule != null) {
-                    scratchPanel?.setModule(firstModule)
-                }
             }
         }
     }
