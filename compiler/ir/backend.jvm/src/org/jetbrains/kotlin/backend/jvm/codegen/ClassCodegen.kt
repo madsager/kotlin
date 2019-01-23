@@ -22,22 +22,31 @@ import org.jetbrains.kotlin.codegen.*
 import org.jetbrains.kotlin.codegen.binding.CodegenBinding
 import org.jetbrains.kotlin.codegen.inline.DefaultSourceMapper
 import org.jetbrains.kotlin.codegen.inline.SourceMapper
+import org.jetbrains.kotlin.codegen.serialization.JvmSerializerExtension
 import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.fileClasses.JvmFileClassUtil
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.util.dump
+import org.jetbrains.kotlin.ir.util.getPackageFragment
 import org.jetbrains.kotlin.load.java.JavaVisibilities
+import org.jetbrains.kotlin.load.java.JvmAnnotationNames.METADATA_PACKAGE_NAME_FIELD_NAME
+import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtElement
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtObjectDeclaration
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.DescriptorUtils.isTopLevelDeclaration
+import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.OtherOrigin
 import org.jetbrains.kotlin.resolve.source.getPsi
+import org.jetbrains.kotlin.serialization.DescriptorSerializer
 import org.jetbrains.kotlin.types.ErrorUtils
 import org.jetbrains.org.objectweb.asm.Opcodes
 import org.jetbrains.org.objectweb.asm.Type
 import java.io.File
-import java.lang.RuntimeException
 
 open class ClassCodegen protected constructor(
     internal val irClass: IrClass,
@@ -98,7 +107,48 @@ open class ClassCodegen protected constructor(
             generateDeclaration(it)
         }
 
+        generateKotlinMetadataAnnotation()
+
         done()
+    }
+
+    private fun generateKotlinMetadataAnnotation() {
+        if (psiElement is KtFile) {
+            val members = MutableList<DeclarationDescriptor>(0, {})
+            irClass.declarations.forEach {
+                if ((it is IrFunction && !it.name.isSpecial)
+                    || it is IrProperty
+                    || it is IrTypeAlias) {
+                    members.add(it.descriptor)
+                }
+            }
+
+            val extension = JvmSerializerExtension(visitor.serializationBindings, state)
+            val serializer = DescriptorSerializer.createTopLevel(extension)
+            val builder = serializer.packagePartProto(irClass.getPackageFragment()!!.fqName, members)
+
+            extension.serializeJvmPackage(builder, type)
+
+            val partType = Type.getObjectType(JvmFileClassUtil.getFileClassInternalName(psiElement))
+            val kotlinePackageFqName = irClass.getPackageFragment()!!.fqName
+            state.factory.registerPackagePart(kotlinePackageFqName, partType.internalName, null)
+
+            writeKotlinMetadata(visitor, state, KotlinClassHeader.Kind.FILE_FACADE, 0) {
+                AsmUtil.writeAnnotationData(it, serializer, builder.build())
+
+                val kotlinPackageFqName = irClass.getPackageFragment()?.fqName
+                if (kotlinPackageFqName != null && !kotlinPackageFqName.equals(JvmClassName.byInternalName(type.getInternalName()).getPackageFqName())) {
+                    it.visit(METADATA_PACKAGE_NAME_FIELD_NAME, kotlinPackageFqName.asString());
+                }
+            }
+        } else if (psiElement is KtClass || psiElement is KtObjectDeclaration) {
+            val extension = JvmSerializerExtension(visitor.serializationBindings, state)
+            val serializer = DescriptorSerializer.createTopLevel(extension)
+            val classProto = serializer.classProto(descriptor).build()
+            writeKotlinMetadata(visitor, state, KotlinClassHeader.Kind.CLASS, 0) {
+                AsmUtil.writeAnnotationData(it, serializer, classProto)
+            }
+        }
     }
 
     private fun done() {
@@ -167,8 +217,6 @@ open class ClassCodegen protected constructor(
 
         if (field.origin == IrDeclarationOrigin.FIELD_FOR_ENUM_ENTRY) {
             AnnotationCodegen.forField(fv, this, state).genAnnotations(field.descriptor, null)
-        } else {
-
         }
     }
 

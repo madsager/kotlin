@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.util.render
-import java.lang.AssertionError
 
 class JvmBackend(val context: JvmBackendContext) {
     private val lower = JvmLower(context)

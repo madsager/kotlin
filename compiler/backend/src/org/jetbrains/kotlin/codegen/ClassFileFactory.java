@@ -257,6 +257,12 @@ public class ClassFileFactory implements OutputFileCollection {
         };
     }
 
+    public void registerPackagePart(@NotNull FqName packageFqName, String partInternalName, String facadeInternalName) {
+        String packageFqNameAsString = packageFqName.asString();
+        PackageParts packageParts = partsGroupedByPackage.computeIfAbsent(packageFqNameAsString, PackageParts::new);
+        packageParts.addPart(partInternalName, facadeInternalName);
+    }
+
     private void registerSourceFiles(Collection<KtFile> files) {
         sourceFiles.addAll(toIoFilesIgnoringNonPhysical(files));
     }

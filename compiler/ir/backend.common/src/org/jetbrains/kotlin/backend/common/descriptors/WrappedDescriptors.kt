@@ -496,7 +496,8 @@ open class WrappedClassDescriptor(
     override fun getDeclaredTypeParameters() = owner.typeParameters.map { it.descriptor }
 
     override fun getSealedSubclasses(): Collection<ClassDescriptor> {
-        TODO("not implemented")
+        // TODO("not implemented")
+        return emptyList()
     }
 
     override fun getOriginal() = this
