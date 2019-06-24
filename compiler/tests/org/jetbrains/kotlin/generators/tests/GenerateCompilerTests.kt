@@ -208,7 +208,9 @@ fun main(args: Array<String>) {
             model("ir/sourceRanges")
         }
 
-
+        testClass<AbstractIrBytecodeListingTest> {
+            model("codegen/bytecodeListing")
+        }
 
         testClass<AbstractBytecodeListingTest> {
             model("codegen/bytecodeListing")
